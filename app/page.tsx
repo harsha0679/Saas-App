@@ -1,10 +1,52 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
+import CompanionCard from '@/components/CompanionCard'
+import CompanionList from '@/components/CompanionsList'
+import CTA from '@/components/CTA'
+import { recentSessions } from '@/constants'
+
 const Page = () => {
   return (
   <>
-    <div className="text-2xl underline">Page</div>
-    <Button className="bg-blue-500 text-white hover:bg-black">Click me</Button>
+  <main>
+    <h1 className="text-2xl underline">Popular Companions</h1>
+    <section className="home-section">
+      <CompanionCard 
+      id='123'
+      name="Neuro brain"
+      topic="nerual network of brian"
+      subject="Neuroscience"
+      duration={30}
+      color='#ffda6e'/>
+
+      <CompanionCard 
+      id='456'
+      name="Numbers brain"
+      topic="Playing with numbers"
+      subject="Maths"
+      duration={35}
+      color='#e5d0ff'/>
+
+      <CompanionCard 
+      id='789'
+      name=" brain"
+      topic="network of brian"
+      subject="Neuroscience"
+      duration={40}
+      color='#BDE7FF'/>
+      
+    </section>
+
+    <section className="home-section">
+      <CompanionList 
+      
+       title='Recently completed sessions'
+       companions={recentSessions}
+       classNames='w-2/3 max-lg:w-full'/>
+      <CTA/>
+
+    </section>
+  </main>
 
     </>
   )
