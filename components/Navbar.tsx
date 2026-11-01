@@ -1,12 +1,16 @@
 
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import Navitems from "./Navitems";
+import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 
 const Navbar = () => {
+  const { isSignedIn } = useAuth();
+
   return (
     <nav className="flex items-center justify-between px-8 py-4">
-
       <Link href="/" className="flex items-center gap-2.5 cursor-pointer">
         <Image
           src="/images/logo.svg"
@@ -18,9 +22,17 @@ const Navbar = () => {
 
       <div className="flex items-center gap-8">
         <Navitems />
-        <Link href="/sign-in">Sign In</Link>
-      </div>
 
+        {!isSignedIn ? (
+          <SignInButton>
+            <button className="btn-primary">
+              Sign In
+            </button>
+          </SignInButton>
+        ) : (
+          <UserButton />
+        )}
+      </div>
     </nav>
   );
 };
