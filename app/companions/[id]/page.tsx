@@ -1,5 +1,6 @@
 
 export const instant = false;
+import CompanionComponent from "@/components/CompanionComponent";
 import { getCompanion } from "@/lib/actions/companion.action"
 import { getSubjectColor } from "@/lib/utils"
 
@@ -23,7 +24,7 @@ const CompanionSession = async ({params}:CompanionSessionPageProps) => {
 
   if (!companion) redirect("/companions");
 
-  const {name,topic,subject,duration}=companion
+  const {name,topic,subject,duration,voice,style}=companion
   return (
     <main> 
       <article className="flex rounded-border justify-between p-6 max-md:flex-col">
@@ -59,6 +60,10 @@ const CompanionSession = async ({params}:CompanionSessionPageProps) => {
          <p className="items-start text-2xl max-md:hidden">{duration} minutes</p>
 
       </article>
+      <CompanionComponent {...companion}
+      companionId={id}
+      userName={user.firstName!} 
+      userImage={user.imageUrl!} />
 
 
 </main>

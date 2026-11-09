@@ -1,222 +1,325 @@
 
-"use client"
+'use client'
 
-import * as z from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import {Input} from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { cn, getSubjectColor, configureAssistant } from "@/lib/utils"
+import { vapi } from "@/lib/vapi.sdk"
+import { useEffect, useRef, useState } from "react"
+import Lottie from "lottie-react"
+import type { LottieRefCurrentProps } from "lottie-react"
+import soundwaves from "@/constants/soundwaves.json"
 
-
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { subjects} from "@/constants"
-import { Textarea } from "./ui/textarea"
-
-
-
-
-
-const formSchema = z.object({
-  name: z.string().min(1, { message: "Name required." }),
-  subject: z.string().min(1, { message: "Subject is required." }),
-  topic: z.string().min(1, { message: "Topic required." }),
-  voice: z.string().min(1, { message: "Voice required." }),
-  style: z.string().min(1, { message: "Style required." }),
-  duration: z.coerce.number<string>().min(1, {
-    message: "Duration required.",
-  }),
-})
-
-const CompanionForm = () => {
-
-    // 1. Define your form.
-  const form =   useForm<
-  z.input<typeof formSchema>,
-  any,
-  z.output<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      subject: "",
-      topic: "",
-      voice: "",
-      style: "",
-      duration: "5",
-    },
-  })
-
-   // 2. Define a submit handler.
-  const onSubmit = (values: z.output<typeof formSchema>) => {
-  console.log(values)
-  console.log(typeof values.duration)
+enum CallStatus {
+    INACTIVE = 'INACTIVE',
+    CONNECTING = 'CONNECTING',
+    ACTIVE = 'ACTIVE',
+    FINISHED = 'FINISHED'
 }
 
-  
+const CompanionComponent = ({
+    name,
+    topic,
+    subject,
+    voice,
+    userName,
+    userImage,
+    companionId,
+    style
+}: CompanionComponentProps) => {
 
-  return (
-       <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Companion Name</FormLabel>
-              <FormControl>
-                <Input placeholder="enter companion name" {...field} className="input" />
-              </FormControl>
-             
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE)
 
-        <FormField
-          control={form.control}
-          name="subject"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>subject</FormLabel>
-              <FormControl>
-                <Select onValueChange={field.onChange}
-                        value={field.value}
-                        defaultValue={field.value}>
-                    <SelectTrigger className="input capitalize">
-                        <SelectValue placeholder="select subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {subjects.map((subject)=>(
-                            <SelectItem key={subject}
-                                        value={subject}
-                                        className="capitalize">
-                                {subject}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+    const [isSpeaking, setIsSpeaking] = useState(false)
+    const [isMuted, setIsMuted] = useState(false)
+     const [messages, setMessages] = useState<SavedMessage[]>([]);
 
-              </FormControl>
-             
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="topic"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>what should the companion cover?</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Ex. Derivatives and Integrals" {...field} className="input" />
-              </FormControl>
-             
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    const lottieRef = useRef<LottieRefCurrentProps>(null)
 
-        <FormField
-          control={form.control}
-          name="voice"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Voice</FormLabel>
-              <FormControl>
-                <Select onValueChange={field.onChange}
-                        value={field.value}
-                        defaultValue={field.value}>
-                    <SelectTrigger className="input">
-                        <SelectValue placeholder="select voice" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        
-                            <SelectItem value="Male">
-                                Male
-                            </SelectItem>
-                            <SelectItem value="Female">
-                                Female
-                            </SelectItem>
-                    
-                    </SelectContent>
-                </Select>
+    // Control Lottie animation
+    useEffect(() => {
+        if (isSpeaking) {
+            lottieRef.current?.play()
+        } else {
+            lottieRef.current?.stop()
+        }
+    }, [isSpeaking])
 
-              </FormControl>
-             
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    // Vapi event listeners
+    useEffect(() => {
 
+        const onCallStart = () => {
+            setCallStatus(CallStatus.ACTIVE)
+        }
 
-        <FormField
-          control={form.control}
-          name="style"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Style</FormLabel>
-              <FormControl>
-                <Select onValueChange={field.onChange}
-                        value={field.value}
-                        defaultValue={field.value}>
-                    <SelectTrigger className="input">
-                        <SelectValue placeholder="select style" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        
-                            <SelectItem value="Formal">
-                                Formal
-                            </SelectItem>
-                            <SelectItem value="Casual">
-                                Casual
-                            </SelectItem>
-                    
-                    </SelectContent>
-                </Select>
+        const onCallEnd = () => {
+            setCallStatus(CallStatus.FINISHED)
+            setIsSpeaking(false)
+            setIsMuted(false)
+        }
+         const onMessage = (message: Message) => {
+            if(message.type === 'transcript' && message.transcriptType === 'final') {
+                const newMessage= { role: message.role, content: message.transcript}
+                setMessages((prev) => [newMessage, ...prev])
+            }
+        }
 
-              </FormControl>
-             
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
+        const onSpeechStart = () => {
+            setIsSpeaking(true)
+        }
 
-        <FormField
-          control={form.control}
-          name="duration"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Duration</FormLabel>
-              <FormControl>
-                <Input type='number' placeholder="15" {...field} className="input" />
-              </FormControl>
-             
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" className="w-full cursor-pointer">Submit</Button>
-      </form>
-    </Form>
+        const onSpeechEnd = () => {
+            setIsSpeaking(false)
+        }
 
-  )
+       const onError = (error: unknown) => {
+    console.error("Vapi Error:", error);
+
+    if (error instanceof Error) {
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+    } else {
+        console.error(
+            "Error details:",
+            JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
+        );
+    }
+
+    setCallStatus(CallStatus.INACTIVE);
+    setIsSpeaking(false);
+};
+
+        vapi.on('call-start', onCallStart)
+        vapi.on('call-end', onCallEnd)
+        vapi.on('speech-start', onSpeechStart)
+        vapi.on('speech-end', onSpeechEnd)
+        vapi.on('error', onError)
+
+        return () => {
+            vapi.off('call-start', onCallStart)
+            vapi.off('call-end', onCallEnd)
+            vapi.off('speech-start', onSpeechStart)
+            vapi.off('speech-end', onSpeechEnd)
+            vapi.off('error', onError)
+        }
+
+    }, [])
+
+    // Toggle microphone
+    const toggleMicrophone = () => {
+
+        // Don't allow microphone changes without an active call
+        if (callStatus !== CallStatus.ACTIVE) return
+
+        const muted = vapi.isMuted()
+
+        vapi.setMuted(!muted)
+
+        setIsMuted(!muted)
+    }
+
+    // Start call
+    const handleCall = async () => {
+
+        if (
+            callStatus === CallStatus.CONNECTING ||
+            callStatus === CallStatus.ACTIVE
+        ) return
+
+        setCallStatus(CallStatus.CONNECTING)
+
+        const assistantOverrides = {
+            variableValues: {
+                subject,
+                topic,
+                style
+            },
+            
+            
+        } ;
+
+        try {
+            await vapi.start(
+                configureAssistant(voice, style),
+                assistantOverrides
+            )
+        } catch (error) {
+            console.error("Failed to start call:", error)
+            setCallStatus(CallStatus.INACTIVE)
+        }
+    }
+
+    // Disconnect call
+    const handleDisconnect = async () => {
+        if (callStatus !== CallStatus.ACTIVE) return
+
+        try {
+            await vapi.stop()
+        } catch (error) {
+            console.error("Failed to stop call:", error)
+        }
+    }
+
+    return (
+        <section className="flex flex-col h-[70vh]">
+
+            <section className="flex gap-8 max-sm:flex-col">
+
+                {/* Companion section */}
+                <div className="companion-section">
+
+                    <div
+                        className="companion-avatar"
+                        style={{
+                            backgroundColor: getSubjectColor(subject)
+                        }}
+                    >
+
+                        {/* Subject icon */}
+                        <div
+                            className={cn(
+                                'absolute transition-opacity duration-1000',
+                                callStatus === CallStatus.FINISHED ||
+                                callStatus === CallStatus.INACTIVE
+                                    ? 'opacity-100'
+                                    : 'opacity-0',
+                                callStatus === CallStatus.CONNECTING &&
+                                'opacity-100 animate-pulse'
+                            )}
+                        >
+                            <img
+                                src={`/icons/${subject}.svg`}
+                                alt={subject}
+                                width={150}
+                                height={150}
+                                className="max-sm:w-fit"
+                            />
+                        </div>
+
+                        {/* Soundwave animation */}
+                        <div
+                            className={cn(
+                                'absolute transition-opacity duration-1000',
+                                callStatus === CallStatus.ACTIVE
+                                    ? 'opacity-100'
+                                    : 'opacity-0'
+                            )}
+                        >
+                            <Lottie
+                                lottieRef={lottieRef}
+                                animationData={soundwaves}
+                                autoPlay={false}
+                                className="companion-lottie"
+                            />
+                        </div>
+
+                    </div>
+
+                    <p className="font-bold text-2xl">
+                        {name}
+                    </p>
+
+                </div>
+
+                {/* User section */}
+                <div className="user-section">
+
+                    <div className="user-avatar">
+
+                        <img
+                            src={userImage}
+                            alt={userName}
+                            width={130}
+                            height={130}
+                            className="rounded-lg"
+                        />
+
+                        <p className="font-bold text-2xl">
+                            {userName}
+                        </p>
+
+                    </div>
+
+                    {/* Microphone button */}
+                    <button
+                        className="btn-mic"
+                        onClick={toggleMicrophone}
+                        disabled={callStatus !== CallStatus.ACTIVE}
+                    >
+                        <img
+                            src={
+                                isMuted
+                                    ? '/icons/mic-off.svg'
+                                    : '/icons/mic-on.svg'
+                            }
+                            alt="mic"
+                            width={36}
+                            height={36}
+                        />
+
+                        <p className="max-sm:hidden">
+                            {isMuted
+                                ? 'Turn-on mic'
+                                : 'Turn-off Mic'}
+                        </p>
+                    </button>
+
+                    {/* Start / End session button */}
+                    <button
+                        className={cn(
+                            'rounded-lg py-2 cursor-pointer transition-colors w-full text-white',
+                            callStatus === CallStatus.ACTIVE
+                                ? 'bg-red-700'
+                                : 'bg-primary',
+                            callStatus === CallStatus.CONNECTING &&
+                                'animate-pulse'
+                        )}
+                        disabled={callStatus === CallStatus.CONNECTING}
+                        onClick={
+                            callStatus === CallStatus.ACTIVE
+                                ? handleDisconnect
+                                : handleCall
+                        }
+                    >
+                        {callStatus === CallStatus.ACTIVE
+                            ? 'End-session'
+                            : callStatus === CallStatus.CONNECTING
+                                ? 'Connecting...'
+                                : callStatus === CallStatus.FINISHED
+                                    ? 'Start Session Again'
+                                    : 'Start Session'}
+                    </button>
+
+                </div>
+
+            </section>
+
+            {/* Transcript section */}
+           <section className="transcript">
+                <div className="transcript-message no-scrollbar">
+                    {messages.map((message, index) => {
+                        if(message.role === 'assistant') {
+                            return (
+                                <p key={index} className="max-sm:text-sm">
+                                    {
+                                        name
+                                            .split(' ')[0]
+                                            .replace('/[.,]/g, ','')
+                                    }: {message.content}
+                                </p>
+                            )
+                        } else {
+                           return <p key={index} className="text-primary max-sm:text-sm">
+                                {userName}: {message.content}
+                            </p>
+                        }
+                    })}
+                </div>
+
+                <div className="transcript-fade" />
+
+            </section>
+
+        </section>
+    )
 }
 
-export default CompanionForm
+export default CompanionComponent
