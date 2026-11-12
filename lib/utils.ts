@@ -25,7 +25,10 @@ export const configureAssistant = (voice: string, style: string) => {
     ] || "sarah";
 
   const vapiAssistant: CreateAssistantDTO = {
+
+
     name: "Companion",
+     
     firstMessage:
       "Hello, let's start the session. Today we'll be talking about {{topic}}.",
     transcriber: {

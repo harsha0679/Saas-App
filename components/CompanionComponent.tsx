@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react"
 import Lottie from "lottie-react"
 import type { LottieRefCurrentProps } from "lottie-react"
 import soundwaves from "@/constants/soundwaves.json"
+import { addToSessionHistory } from "@/lib/actions/companion.action"
 
 enum CallStatus {
     INACTIVE = 'INACTIVE',
@@ -14,6 +15,11 @@ enum CallStatus {
     ACTIVE = 'ACTIVE',
     FINISHED = 'FINISHED'
 }
+
+type SavedMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
 
 const CompanionComponent = ({
     name,
@@ -30,7 +36,7 @@ const CompanionComponent = ({
 
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [isMuted, setIsMuted] = useState(false)
-     const [messages, setMessages] = useState<SavedMessage[]>([]);
+    const [messages, setMessages] = useState<SavedMessage[]>([]);
 
     const lottieRef = useRef<LottieRefCurrentProps>(null)
 
@@ -54,13 +60,47 @@ const CompanionComponent = ({
             setCallStatus(CallStatus.FINISHED)
             setIsSpeaking(false)
             setIsMuted(false)
+
+            //session History will be added(using Companion Id)
+            addToSessionHistory(companionId)
         }
-         const onMessage = (message: Message) => {
-            if(message.type === 'transcript' && message.transcriptType === 'final') {
-                const newMessage= { role: message.role, content: message.transcript}
-                setMessages((prev) => [newMessage, ...prev])
-            }
-        }
+
+
+{/*const onMessage = (message: any) => {
+  console.log("VAPI MESSAGE:", message);
+
+  // Student's speech
+  if (
+    message.type === "transcript" &&
+    message.transcriptType === "final" &&
+    message.role === "user"
+  ) {
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "user",
+        content: message.transcript,
+      },
+    ]);
+  }
+
+  // AI tutor's speech
+  if (
+    message.type === "assistant.speechStarted" &&
+    message.text?.trim()
+  ) {
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: message.text,
+      },
+    ]);
+  }
+};*/}   
+        const onMessage = (message: any) => {
+  console.log("VAPI MESSAGE RECEIVED:", message);
+};
 
         const onSpeechStart = () => {
             setIsSpeaking(true)
@@ -92,6 +132,8 @@ const CompanionComponent = ({
         vapi.on('speech-start', onSpeechStart)
         vapi.on('speech-end', onSpeechEnd)
         vapi.on('error', onError)
+        vapi.on('message', onMessage)
+        
 
         return () => {
             vapi.off('call-start', onCallStart)
@@ -99,6 +141,7 @@ const CompanionComponent = ({
             vapi.off('speech-start', onSpeechStart)
             vapi.off('speech-end', onSpeechEnd)
             vapi.off('error', onError)
+           
         }
 
     }, [])
@@ -127,13 +170,13 @@ const CompanionComponent = ({
         setCallStatus(CallStatus.CONNECTING)
 
         const assistantOverrides = {
-            variableValues: {
-                subject,
-                topic,
-                style
-            },
-            
-            
+        variableValues: {
+        subject,
+        topic,
+        style,
+        },
+    
+    
         } ;
 
         try {
@@ -293,31 +336,26 @@ const CompanionComponent = ({
             </section>
 
             {/* Transcript section */}
-           <section className="transcript">
-                <div className="transcript-message no-scrollbar">
-                    {messages.map((message, index) => {
-                        if(message.role === 'assistant') {
-                            return (
-                                <p key={index} className="max-sm:text-sm">
-                                    {
-                                        name
-                                            .split(' ')[0]
-                                            .replace('/[.,]/g, ','')
-                                    }: {message.content}
-                                </p>
-                            )
-                        } else {
-                           return <p key={index} className="text-primary max-sm:text-sm">
-                                {userName}: {message.content}
-                            </p>
-                        }
-                    })}
-                </div>
+          <section className="transcript">
+  <div className="transcript-message">
+    {messages.map((message, index) => (
+      <div
+        key={index}
+        className={`${
+          message.role === "assistant"
+            ? "bg-blue-100 self-start"
+            : "bg-green-100 self-end"
+        } rounded-xl p-4 max-w-[80%]`}
+      >
+        <p className="font-semibold text-sm mb-1">
+          {message.role === "assistant" ? "AI Tutor" : "You"}
+        </p>
 
-                <div className="transcript-fade" />
-
-            </section>
-
+        <p>{message.content}</p>
+      </div>
+    ))}
+  </div>
+</section>
         </section>
     )
 }

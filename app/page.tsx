@@ -1,55 +1,82 @@
-import React from 'react'
-import { Button } from '@/components/ui/button'
+
+import { Suspense } from 'react'
+
 import CompanionCard from '@/components/CompanionCard'
 import CompanionList from '@/components/CompanionsList'
 import CTA from '@/components/CTA'
-import { recentSessions } from '@/constants'
+
+import {
+    getAllCompanions,
+    getRecentSessions
+} from '@/lib/actions/companion.action'
+
+import { getSubjectColor } from '@/lib/utils'
+
+
+// Fetch popular companions
+const PopularCompanions = async () => {
+
+    const companions = await getAllCompanions({ limit: 3 })
+
+    return (
+        <section className="home-section">
+
+            {companions.map((companion) => (
+                <CompanionCard
+                    key={companion.id}
+                    {...companion}
+                    color={getSubjectColor(companion.subject)}
+                />
+            ))}
+
+        </section>
+    )
+}
+
+
+// Fetch recent sessions
+const RecentSessions = async () => {
+
+    const recentSessionCompanions = await getRecentSessions(10)
+
+    return (
+        <CompanionList
+            title="Recently completed sessions"
+            companions={recentSessionCompanions}
+            classNames="w-2/3 max-lg:w-full"
+        />
+    )
+}
+
 
 const Page = () => {
-  return (
-  <>
-  <main>
-    <h1 className="text-2xl underline">Popular Companions</h1>
-    <section className="home-section">
-      <CompanionCard 
-      id='123'
-      name="Neuro brain"
-      topic="nerual network of brian"
-      subject="Neuroscience"
-      duration={30}
-      color='#ffda6e'/>
 
-      <CompanionCard 
-      id='456'
-      name="Numbers brain"
-      topic="Playing with numbers"
-      subject="Maths"
-      duration={35}
-      color='#e5d0ff'/>
+    return (
+        <>
+            <main>
 
-      <CompanionCard 
-      id='789'
-      name=" brain"
-      topic="network of brian"
-      subject="Neuroscience"
-      duration={40}
-      color='#BDE7FF'/>
-      
-    </section>
+                <h1 className="text-2xl underline">
+                    Popular Companions
+                </h1>
 
-    <section className="home-section">
-      <CompanionList 
-      
-       title='Recently completed sessions'
-       companions={recentSessions}
-       classNames='w-2/3 max-lg:w-full'/>
-      <CTA/>
+                <Suspense fallback={<p>Loading popular companions...</p>}>
+                    <PopularCompanions />
+                </Suspense>
 
-    </section>
-  </main>
 
-    </>
-  )
+                <section className="home-section">
+
+                    <Suspense fallback={<p>Loading recent sessions...</p>}>
+                        <RecentSessions />
+                    </Suspense>
+
+                    <CTA />
+
+                </section>
+
+            </main>
+        </>
+    )
 }
 
 export default Page
